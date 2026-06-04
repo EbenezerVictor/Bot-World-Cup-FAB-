@@ -483,18 +483,30 @@ def fechar_dia_no_banco() -> tuple[bool, list[tuple[str, str]]]:
 
 
 def buscar_ranking() -> list[tuple[str, int, str]]:
-    """Busca a classificacao atual com trader associado por selecao."""
+    """Busca a classificacao de todas as 19 selecoes oficiais com seus respectivos traders."""
     with conectar_banco() as conn:
         cursor = conn.cursor()
+        
+        # Garante que todas as seleções oficiais existam na tabela de ranking antes de listar
+        for _, _, selecao in PARTICIPANTES_OFICIAIS:
+            cursor.execute(
+                "INSERT OR IGNORE INTO ranking (selecao, pontos) VALUES (?, 0)",
+                (selecao,)
+            )
+        conn.commit()
+
+        # Query inteligente: busca todas as seleções e traz o nome real do trader associado
         cursor.execute(
             """
-            SELECT
+            SELECT 
                 r.selecao,
                 r.pontos,
-                COALESCE(MIN(t.nome), 'Sem Trader') AS nome_trader
+                COALESCE(
+                    (SELECT t.nome FROM traders t WHERE t.selecao = r.selecao AND t.discord_id NOT LIKE 'id_%' LIMIT 1),
+                    (SELECT t.nome FROM traders t WHERE t.selecao = r.selecao LIMIT 1),
+                    'Sem Trader'
+                ) AS nome_trader
             FROM ranking r
-            LEFT JOIN traders t ON t.selecao = r.selecao
-            GROUP BY r.selecao, r.pontos
             ORDER BY r.pontos DESC, r.selecao ASC
             """
         )
