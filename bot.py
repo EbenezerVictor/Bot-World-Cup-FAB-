@@ -603,7 +603,7 @@ async def on_message(message: discord.Message) -> None:
 
 @bot.command(name="desempenho")
 async def desempenho(ctx: commands.Context) -> None:
-    """Exibe o painel de estatísticas detalhadas usando o mesmo estilo visual de Embed do ranking."""
+    """Exibe o painel de estatísticas detalhadas dividido para não estourar o limite do Discord."""
     with conectar_banco() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -647,28 +647,44 @@ async def desempenho(ctx: commands.Context) -> None:
         return
 
     agora = datetime.datetime.now(TIMEZONE_CAMPEONATO)
-    embed = discord.Embed(
-        title="📊 PAINEL DE ESTATÍSTICAS — FABÚ TRADER WORLD CUP", 
-        color=discord.Color.gold(), 
-        timestamp=agora
-    )
+    
+    # Criamos listas para dividir os blocos de traders (10 no primeiro, o resto no segundo)
+    linhas_bloco1 = []
+    linhas_bloco2 = []
 
-    linhas = []
     for posicao, (selecao, trader, sinais, tp, be, sl, pontos) in enumerate(dados, start=1):
         emoji_bandeira = BANDEIRAS_SELECOES.get(selecao, "🏳️")
         
-        # Monta a linha compacta: #. 🇧🇷 Trader | Sinais: X | 🎯 T: X | 🤝 B: X | ❌ S: X | Pts: X
+        # Formato compacto ultra otimizado
         linha = (
             f"**{posicao}.** {emoji_bandeira} **{trader}**\n"
-            f"└ 📋 Sinais: `{sinais}` | 🎯 TP: `{tp}` | 🤝 BE: `{be}` | ❌ SL: `{sl}` | 🏆 Pts: **{pontos}**"
+            f"└ 📋:`{sinais}` | 🎯:`{tp}` | 🤝:`{be}` | ❌:`{sl}` | 🏆:**{pontos}**"
         )
-        linhas.append(linha)
+        
+        if posicao <= 10:
+            linhas_bloco1.append(linha)
+        else:
+            linhas_bloco2.append(linha)
 
-    # Junta tudo na descrição do Embed, garantindo que quebre linha perfeitamente em qualquer ecrã
-    embed.description = "\n\n".join(linhas)
-    embed.set_footer(text="FABÚ Trader World Cup 2026")
+    # --- ENVIAR PARTE 1 (Traders 1 ao 10) ---
+    embed1 = discord.Embed(
+        title="📊 PAINEL DE ESTATÍSTICAS — PARTE 1/2", 
+        color=discord.Color.gold(), 
+        timestamp=agora
+    )
+    embed1.description = "\n\n".join(linhas_bloco1)
+    await ctx.send(embed=embed1)
 
-    await ctx.send(embed=embed)
+    # --- ENVIAR PARTE 2 (Traders 11 ao 19) ---
+    embed2 = discord.Embed(
+        title="📊 PAINEL DE ESTATÍSTICAS — PARTE 2/2", 
+        color=discord.Color.gold(), 
+        timestamp=agora
+    )
+    embed2.description = "\n\n".join(linhas_bloco2)
+    embed2.set_footer(text="FABÚ Trader World Cup 2026")
+    await ctx.send(embed=embed2)
+    
 if __name__ == "__main__":
     inicializar_banco()
     if not TOKEN:
