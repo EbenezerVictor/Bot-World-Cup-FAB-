@@ -606,7 +606,7 @@ async def desempenho(ctx: commands.Context) -> None:
     """Exibe uma tabela detalhada com as estatísticas de trades de cada seleção/trader."""
     with conectar_banco() as conn:
         cursor = conn.cursor()
-        # Consulta corrigida para listar todas as seleções do ranking mesmo sem histórico de sinais
+        # Consulta ultra blindada: conta o histórico de forma isolada para nunca zerar as linhas da tabela
         cursor.execute(
             """
             SELECT 
@@ -616,22 +616,35 @@ async def desempenho(ctx: commands.Context) -> None:
                     (SELECT t.nome FROM traders t WHERE t.selecao = r.selecao LIMIT 1),
                     'Sem Trader'
                 ) AS nome_trader,
-                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#Sinal' THEN 1 ELSE 0 END), 0) as qtd_sinais,
-                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#TP' THEN 1 ELSE 0 END), 0) as qtd_tp,
-                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#BE' THEN 1 ELSE 0 END), 0) as qtd_be,
-                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#SL' THEN 1 ELSE 0 END), 0) as qtd_sl,
+                (
+                    SELECT COUNT(*) FROM historico_sinais h 
+                    JOIN traders t2 ON t2.discord_id = h.discord_id 
+                    WHERE t2.selecao = r.selecao AND h.tipo_hashtag = '#Sinal'
+                ) as qtd_sinais,
+                (
+                    SELECT COUNT(*) FROM historico_sinais h 
+                    JOIN traders t2 ON t2.discord_id = h.discord_id 
+                    WHERE t2.selecao = r.selecao AND h.tipo_hashtag = '#TP'
+                ) as qtd_tp,
+                (
+                    SELECT COUNT(*) FROM historico_sinais h 
+                    JOIN traders t2 ON t2.discord_id = h.discord_id 
+                    WHERE t2.selecao = r.selecao AND h.tipo_hashtag = '#BE'
+                ) as qtd_be,
+                (
+                    SELECT COUNT(*) FROM historico_sinais h 
+                    JOIN traders t2 ON t2.discord_id = h.discord_id 
+                    WHERE t2.selecao = r.selecao AND h.tipo_hashtag = '#SL'
+                ) as qtd_sl,
                 r.pontos
             FROM ranking r
-            LEFT JOIN traders t_rel ON t_rel.selecao = r.selecao
-            LEFT JOIN historico_sinais h ON h.discord_id = t_rel.discord_id
-            GROUP BY r.selecao
             ORDER BY r.pontos DESC, r.selecao ASC
             """
         )
         dados = cursor.fetchall()
 
     if not dados:
-        await ctx.send("Nenhum dado de desempenho encontrado.")
+        await ctx.send("Nenhum dado de desempenho encontrado no ranking.")
         return
 
     # Montagem da tabela em formato de texto alinhado (Code Block do Discord)
@@ -641,14 +654,7 @@ async def desempenho(ctx: commands.Context) -> None:
     
     linhas_tabela = [topo, divisor]
     
-    # Conjunto para evitar duplicar linhas no painel de exibição estática
-    selecoes_geradas = set()
-    
     for selecao, trader, sinais, tp, be, sl, pontos in dados:
-        if selecao in selecoes_geradas:
-            continue
-        selecoes_geradas.add(selecao)
-        
         sel_trunc = selecao[:14]
         trader_trunc = trader[:16]
         
