@@ -169,11 +169,14 @@ def popular_dados_oficiais() -> None:
 
 
 def popular_campeonato_oficial() -> None:
-    """Popula o banco com a lista oficial da Fabú Trader World Cup."""
+    """Popula o banco com la lista oficial da Fabú Trader World Cup e reseta os pontos."""
     selecoes = {(selecao,) for _, _, selecao in PARTICIPANTES_OFICIAIS}
 
     with conectar_banco() as conn:
         cursor = conn.cursor()
+
+        # ESTA LINHA DEIXA O PLACAR 100% ZERADO E LIMPO:
+        cursor.execute("DELETE FROM ranking")
 
         cursor.executemany(
             """
