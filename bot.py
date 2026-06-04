@@ -606,7 +606,7 @@ async def desempenho(ctx: commands.Context) -> None:
     """Exibe uma tabela detalhada com as estatísticas de trades de cada seleção/trader."""
     with conectar_banco() as conn:
         cursor = conn.cursor()
-        # Garante que puxamos todas as seleções do ranking e contamos o histórico de hashtags de cada uma
+        # Consulta corrigida para listar todas as seleções do ranking mesmo sem histórico de sinais
         cursor.execute(
             """
             SELECT 
@@ -616,10 +616,10 @@ async def desempenho(ctx: commands.Context) -> None:
                     (SELECT t.nome FROM traders t WHERE t.selecao = r.selecao LIMIT 1),
                     'Sem Trader'
                 ) AS nome_trader,
-                COUNT(CASE WHEN h.tipo_hashtag = '#Sinal' THEN 1 END) as qtd_sinais,
-                COUNT(CASE WHEN h.tipo_hashtag = '#TP' THEN 1 END) as qtd_tp,
-                COUNT(CASE WHEN h.tipo_hashtag = '#BE' THEN 1 END) as qtd_be,
-                COUNT(CASE WHEN h.tipo_hashtag = '#SL' THEN 1 END) as qtd_sl,
+                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#Sinal' THEN 1 ELSE 0 END), 0) as qtd_sinais,
+                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#TP' THEN 1 ELSE 0 END), 0) as qtd_tp,
+                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#BE' THEN 1 ELSE 0 END), 0) as qtd_be,
+                COALESCE(SUM(CASE WHEN h.tipo_hashtag = '#SL' THEN 1 ELSE 0 END), 0) as qtd_sl,
                 r.pontos
             FROM ranking r
             LEFT JOIN traders t_rel ON t_rel.selecao = r.selecao
@@ -635,14 +635,20 @@ async def desempenho(ctx: commands.Context) -> None:
         return
 
     # Montagem da tabela em formato de texto alinhado (Code Block do Discord)
-    # Largura das colunas: Seleção (14), Trader (16), Sinais (4), TP (3), BE (3), SL (3), Pts (4)
+    # Largura das colunas: Seleção (14), Trader (16), Sinais (5), TP (3), BE (3), SL (3), Pts (4)
     topo = f"{'Seleção':<14} | {'Trader':<16} | {'Sinal':<5} | {'TP':<3} | {'BE':<3} | {'SL':<3} | {'Pts':<4}"
     divisor = "-" * len(topo)
     
     linhas_tabela = [topo, divisor]
     
+    # Conjunto para evitar duplicar linhas no painel de exibição estática
+    selecoes_geradas = set()
+    
     for selecao, trader, sinais, tp, be, sl, pontos in dados:
-        # Corta o nome se for grande demais para não quebrar o alinhamento da tabela
+        if selecao in selecoes_geradas:
+            continue
+        selecoes_geradas.add(selecao)
+        
         sel_trunc = selecao[:14]
         trader_trunc = trader[:16]
         
@@ -651,7 +657,6 @@ async def desempenho(ctx: commands.Context) -> None:
 
     conteudo_tabela = "\n".join(linhas_tabela)
     
-    # Envia dentro de um bloco de código de fonte monoespaçada para manter as colunas perfeitas
     await ctx.send(
         f"📊 **PAINEL DE ESTATÍSTICAS — FABÚ TRADER WORLD CUP**\n"
         f"```text\n{conteudo_tabela}\n```"
