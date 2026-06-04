@@ -38,7 +38,7 @@ BANDEIRAS_SELECOES = {
     "França": "🇫🇷",
     "Alemanha": "🇩🇪",
     "Espanha": "🇪🇸",
-    "Inglaterra": "🏴",
+    "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
     "Senegal": "🇸🇳",
     "Holanda": "🇳🇱",
     "Bélgica": "🇧🇪",
