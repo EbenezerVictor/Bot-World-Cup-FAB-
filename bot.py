@@ -30,6 +30,27 @@ BONUS_HAT_TRICK = 15
 BONUS_TP_SEGUIDOS = 10
 BONUS_DIA_PERFEITO = 5
 TIMEZONE_CAMPEONATO = ZoneInfo("Europe/Lisbon")
+PARTICIPANTES_OFICIAIS = [
+    ("id_Xitos", "Xitos", "Portugal"),
+    ("id_Jack_Lourenzo", "Jack Lourenzo", "Brasil"),
+    ("id_jailson", "jailson.", "Argentina"),
+    ("id_Antonio_Chipinga", "Antonio Chipinga", "França"),
+    ("id_Antonio_Cateia", "António Cateia", "Alemanha"),
+    ("id_Cmdte_SHI_FU_Trader", "Cmdte SHI FÚ Trader", "Espanha"),
+    ("id_Daniel_Marcelo", "Daniel Marcelo", "Inglaterra"),
+    ("id_Fil_Leateya", "Fil Leateya", "Senegal"),
+    ("id_Francisco_Caetano", "Francisco Caetano", "Holanda"),
+    ("id_GOLD6018", "GOLD6018", "Bélgica"),
+    ("id_Graca", "Graça", "Croácia"),
+    ("id_Hosana_Manuel", "Hosana Manuel", "Estados Unidos"),
+    ("id_JC_Fernandes", "JC Fernandes", "Uruguai"),
+    ("id_Klaus_Willy", "Klaus Willy", "Marrocos"),
+    ("id_Lukeny_Do_Rosario", "Lukeny Do Rosario", "Japão"),
+    ("id_Miguel_FM", "Miguel FM", "México"),
+    ("id_NR_NP", "NR-NP", "Suíça"),
+    ("id_Nyna_Torres", "Nyna Torres", "Cabo Verde"),
+    ("id_El_Tubarao", "El Tubarão", "Colômbia"),
+]
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -112,6 +133,32 @@ def popular_dados_oficiais() -> None:
             VALUES (?, ?, ?)
             """,
             traders_oficiais,
+        )
+
+        cursor.executemany(
+            """
+            INSERT OR IGNORE INTO ranking (selecao)
+            VALUES (?)
+            """,
+            selecoes,
+        )
+
+        conn.commit()
+
+
+def popular_campeonato_oficial() -> None:
+    """Popula o banco com a lista oficial da Fabú Trader World Cup."""
+    selecoes = {(selecao,) for _, _, selecao in PARTICIPANTES_OFICIAIS}
+
+    with conectar_banco() as conn:
+        cursor = conn.cursor()
+
+        cursor.executemany(
+            """
+            INSERT OR IGNORE INTO traders (discord_id, nome, selecao)
+            VALUES (?, ?, ?)
+            """,
+            PARTICIPANTES_OFICIAIS,
         )
 
         cursor.executemany(
@@ -509,8 +556,17 @@ async def registrar(ctx: commands.Context, usuario: discord.User, *, dados: str)
     await ctx.send(f"✅ Trader registrado: **{nome}** representando **{selecao}**.")
 
 
+@bot.command(name="setup_campeonato")
+@commands.has_permissions(administrator=True)
+async def setup_campeonato(ctx: commands.Context) -> None:
+    """Popula o banco com os traders e selecoes oficiais do campeonato."""
+    popular_campeonato_oficial()
+    await ctx.send("✅ Banco de dados oficial populado com as seleções do campeonato!")
+
+
 @fechar_dia.error
 @registrar.error
+@setup_campeonato.error
 async def comando_admin_error(ctx: commands.Context, error: commands.CommandError) -> None:
     """Mensagem amigavel para erros comuns dos comandos administrativos."""
     if isinstance(error, commands.MissingPermissions):
