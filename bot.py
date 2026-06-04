@@ -31,6 +31,27 @@ BONUS_HAT_TRICK = 15
 BONUS_TP_SEGUIDOS = 10
 BONUS_DIA_PERFEITO = 5
 TIMEZONE_CAMPEONATO = ZoneInfo("Europe/Lisbon")
+BANDEIRAS_SELECOES = {
+    "Portugal": "🇵🇹",
+    "Brasil": "🇧🇷",
+    "Argentina": "🇦🇷",
+    "França": "🇫🇷",
+    "Alemanha": "🇩🇪",
+    "Espanha": "🇪🇸",
+    "Inglaterra": "🏴",
+    "Senegal": "🇸🇳",
+    "Holanda": "🇳🇱",
+    "Bélgica": "🇧🇪",
+    "Croácia": "🇭🇷",
+    "Estados Unidos": "🇺🇸",
+    "Uruguai": "🇺🇾",
+    "Marrocos": "🇲🇦",
+    "Japão": "🇯🇵",
+    "México": "🇲🇽",
+    "Suíça": "🇨🇭",
+    "Cabo Verde": "🇨🇻",
+    "Colômbia": "🇨🇴",
+}
 PARTICIPANTES_OFICIAIS = [
     ("id_Xitos", "Xitos", "Portugal"),
     ("id_Jack_Lourenzo", "Jack Lourenzo", "Brasil"),
@@ -461,15 +482,20 @@ def fechar_dia_no_banco() -> tuple[bool, list[tuple[str, str]]]:
     return True, traders_bonificados
 
 
-def buscar_ranking() -> list[tuple[str, int]]:
-    """Busca a classificacao atual ordenada por pontuacao."""
+def buscar_ranking() -> list[tuple[str, int, str]]:
+    """Busca a classificacao atual com trader associado por selecao."""
     with conectar_banco() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT selecao, pontos
-            FROM ranking
-            ORDER BY pontos DESC, selecao ASC
+            SELECT
+                r.selecao,
+                r.pontos,
+                COALESCE(MIN(t.nome), 'Sem Trader') AS nome_trader
+            FROM ranking r
+            LEFT JOIN traders t ON t.selecao = r.selecao
+            GROUP BY r.selecao, r.pontos
+            ORDER BY r.pontos DESC, r.selecao ASC
             """
         )
         return cursor.fetchall()
@@ -488,8 +514,11 @@ def criar_embed_ranking() -> discord.Embed:
 
     if ranking:
         linhas = [
-            f"**{posicao}. {selecao}** — `{pontos}` pontos"
-            for posicao, (selecao, pontos) in enumerate(ranking, start=1)
+            (
+                f"**{posicao}.** 🌍 {BANDEIRAS_SELECOES.get(selecao, '🏳️')} {selecao} "
+                f"- Trader: **{nome_trader}** | Pontos: **{pontos}**"
+            )
+            for posicao, (selecao, pontos, nome_trader) in enumerate(ranking, start=1)
         ]
         embed.description = "\n".join(linhas)
     else:
