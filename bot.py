@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 import sqlite3
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -339,6 +340,54 @@ def cadastrar_trader(discord_id: str, nome: str, selecao: str) -> None:
         conn.commit()
 
 
+def buscar_selecoes_cadastradas() -> set[str]:
+    """Retorna selecoes ja conhecidas pelo ranking e pela lista oficial."""
+    selecoes = {selecao for _, _, selecao in PARTICIPANTES_OFICIAIS}
+
+    with conectar_banco() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT selecao FROM ranking")
+        selecoes.update(row[0] for row in cursor.fetchall())
+
+    return selecoes
+
+
+def extrair_nome_e_selecao(texto: str) -> tuple[str, str] | None:
+    """Separa nome e selecao, priorizando selecoes conhecidas com nomes compostos."""
+    texto = texto.strip()
+
+    for selecao in sorted(buscar_selecoes_cadastradas(), key=len, reverse=True):
+        if texto.casefold().endswith(selecao.casefold()):
+            nome = texto[: -len(selecao)].strip()
+            if nome:
+                return nome, selecao
+
+    partes = texto.rsplit(" ", 1)
+    if len(partes) != 2:
+        return None
+
+    nome, selecao = (parte.strip() for parte in partes)
+    if not nome or not selecao:
+        return None
+
+    return nome, selecao
+
+
+def extrair_linhas_registro(ctx: commands.Context) -> list[str]:
+    """Extrai as linhas de cadastro removendo o comando da primeira linha."""
+    linhas = ctx.message.content.split("\n")
+    primeira_linha = linhas[0]
+    comando = ctx.invoked_with or "registrar"
+    prefixo = str(ctx.prefix or "")
+    chamada = f"{prefixo}{comando}"
+
+    if primeira_linha.startswith(chamada):
+        primeira_linha = primeira_linha[len(chamada) :].strip()
+
+    linhas[0] = primeira_linha
+    return [linha.strip() for linha in linhas if linha.strip()]
+
+
 def data_hoje_campeonato() -> str:
     """Retorna a data atual no fuso horario oficial do campeonato."""
     return datetime.datetime.now(TIMEZONE_CAMPEONATO).date().isoformat()
@@ -534,26 +583,62 @@ async def fechar_dia(ctx: commands.Context) -> None:
 
 @bot.command(name="registrar")
 @commands.has_permissions(administrator=True)
-async def registrar(ctx: commands.Context, usuario: discord.User, *, dados: str) -> None:
+async def registrar(ctx: commands.Context, *, dados: str = "") -> None:
     """
-    Cadastra um trader oficial.
+    Cadastra um ou varios traders oficiais.
 
-    Uso: !registrar @usuario Nome Selecao
+    Uso:
+    !registrar @usuario Nome Selecao
+
+    Ou:
+    !registrar
+    @usuario Nome Selecao
+    @usuario2 Outro Nome Outra Selecao
     """
-    partes = dados.rsplit(" ", 1)
+    del dados
 
-    if len(partes) != 2:
-        await ctx.send("Use: `!registrar @usuario Nome Selecao`")
+    linhas = extrair_linhas_registro(ctx)
+    registrados = []
+    falhas = []
+
+    if not linhas:
+        await ctx.send("Use: `!registrar @usuario Nome Selecao` ou envie uma lista com uma linha por trader.")
         return
 
-    nome, selecao = (parte.strip() for parte in partes)
+    for linha in linhas:
+        match = re.match(r"^<@!?(\d+)>\s+(.+)$", linha)
 
-    if not nome or not selecao:
-        await ctx.send("Use: `!registrar @usuario Nome Selecao`")
+        if match is None:
+            falhas.append(f"`{linha}`")
+            continue
+
+        discord_id, dados_trader = match.groups()
+        trader = extrair_nome_e_selecao(dados_trader)
+
+        if trader is None:
+            falhas.append(f"`{linha}`")
+            continue
+
+        nome, selecao = trader
+        cadastrar_trader(discord_id, nome, selecao)
+        registrados.append((discord_id, nome, selecao))
+
+    if not registrados:
+        await ctx.send(
+            "Nenhum trader foi registrado. Use o formato: `@Membro Nome Do Trader País`."
+        )
         return
 
-    cadastrar_trader(str(usuario.id), nome, selecao)
-    await ctx.send(f"✅ Trader registrado: **{nome}** representando **{selecao}**.")
+    linhas_sucesso = [
+        f"• <@{discord_id}> — **{nome}** / **{selecao}**"
+        for discord_id, nome, selecao in registrados
+    ]
+    resposta = "✅ Traders registrados com sucesso:\n" + "\n".join(linhas_sucesso)
+
+    if falhas:
+        resposta += "\n\n⚠️ Linhas ignoradas por formato inválido:\n" + "\n".join(falhas)
+
+    await ctx.send(resposta)
 
 
 @bot.command(name="setup_campeonato")
