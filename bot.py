@@ -601,6 +601,61 @@ async def on_message(message: discord.Message) -> None:
         return
     await bot.process_commands(message)
 
+@bot.command(name="desempenho")
+async def desempenho(ctx: commands.Context) -> None:
+    """Exibe uma tabela detalhada com as estatísticas de trades de cada seleção/trader."""
+    with conectar_banco() as conn:
+        cursor = conn.cursor()
+        # Garante que puxamos todas as seleções do ranking e contamos o histórico de hashtags de cada uma
+        cursor.execute(
+            """
+            SELECT 
+                r.selecao,
+                COALESCE(
+                    (SELECT t.nome FROM traders t WHERE t.selecao = r.selecao AND t.discord_id NOT LIKE 'id_%' LIMIT 1),
+                    (SELECT t.nome FROM traders t WHERE t.selecao = r.selecao LIMIT 1),
+                    'Sem Trader'
+                ) AS nome_trader,
+                COUNT(CASE WHEN h.tipo_hashtag = '#Sinal' THEN 1 END) as qtd_sinais,
+                COUNT(CASE WHEN h.tipo_hashtag = '#TP' THEN 1 END) as qtd_tp,
+                COUNT(CASE WHEN h.tipo_hashtag = '#BE' THEN 1 END) as qtd_be,
+                COUNT(CASE WHEN h.tipo_hashtag = '#SL' THEN 1 END) as qtd_sl,
+                r.pontos
+            FROM ranking r
+            LEFT JOIN traders t_rel ON t_rel.selecao = r.selecao
+            LEFT JOIN historico_sinais h ON h.discord_id = t_rel.discord_id
+            GROUP BY r.selecao
+            ORDER BY r.pontos DESC, r.selecao ASC
+            """
+        )
+        dados = cursor.fetchall()
+
+    if not dados:
+        await ctx.send("Nenhum dado de desempenho encontrado.")
+        return
+
+    # Montagem da tabela em formato de texto alinhado (Code Block do Discord)
+    # Largura das colunas: Seleção (14), Trader (16), Sinais (4), TP (3), BE (3), SL (3), Pts (4)
+    topo = f"{'Seleção':<14} | {'Trader':<16} | {'Sinal':<5} | {'TP':<3} | {'BE':<3} | {'SL':<3} | {'Pts':<4}"
+    divisor = "-" * len(topo)
+    
+    linhas_tabela = [topo, divisor]
+    
+    for selecao, trader, sinais, tp, be, sl, pontos in dados:
+        # Corta o nome se for grande demais para não quebrar o alinhamento da tabela
+        sel_trunc = selecao[:14]
+        trader_trunc = trader[:16]
+        
+        linha = f"{sel_trunc:<14} | {trader_trunc:<16} | {sinais:<5} | {tp:<3} | {be:<3} | {sl:<3} | {pontos:<4}"
+        linhas_tabela.append(linha)
+
+    conteudo_tabela = "\n".join(linhas_tabela)
+    
+    # Envia dentro de um bloco de código de fonte monoespaçada para manter as colunas perfeitas
+    await ctx.send(
+        f"📊 **PAINEL DE ESTATÍSTICAS — FABÚ TRADER WORLD CUP**\n"
+        f"```text\n{conteudo_tabela}\n```"
+    )
 
 if __name__ == "__main__":
     inicializar_banco()
