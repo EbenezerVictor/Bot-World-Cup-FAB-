@@ -603,10 +603,9 @@ async def on_message(message: discord.Message) -> None:
 
 @bot.command(name="desempenho")
 async def desempenho(ctx: commands.Context) -> None:
-    """Exibe uma tabela detalhada com as estatísticas de trades de cada seleção/trader."""
+    """Exibe o painel de estatísticas detalhadas usando o mesmo estilo visual de Embed do ranking."""
     with conectar_banco() as conn:
         cursor = conn.cursor()
-        # Consulta ultra blindada: conta o histórico de forma isolada para nunca zerar as linhas da tabela
         cursor.execute(
             """
             SELECT 
@@ -644,30 +643,32 @@ async def desempenho(ctx: commands.Context) -> None:
         dados = cursor.fetchall()
 
     if not dados:
-        await ctx.send("Nenhum dado de desempenho encontrado no ranking.")
+        await ctx.send("Nenhum dado de desempenho encontrado.")
         return
 
-    # Montagem da tabela em formato de texto alinhado (Code Block do Discord)
-    # Largura das colunas: Seleção (14), Trader (16), Sinais (5), TP (3), BE (3), SL (3), Pts (4)
-    topo = f"{'Seleção':<14} | {'Trader':<16} | {'Sinal':<5} | {'TP':<3} | {'BE':<3} | {'SL':<3} | {'Pts':<4}"
-    divisor = "-" * len(topo)
-    
-    linhas_tabela = [topo, divisor]
-    
-    for selecao, trader, sinais, tp, be, sl, pontos in dados:
-        sel_trunc = selecao[:14]
-        trader_trunc = trader[:16]
-        
-        linha = f"{sel_trunc:<14} | {trader_trunc:<16} | {sinais:<5} | {tp:<3} | {be:<3} | {sl:<3} | {pontos:<4}"
-        linhas_tabela.append(linha)
-
-    conteudo_tabela = "\n".join(linhas_tabela)
-    
-    await ctx.send(
-        f"📊 **PAINEL DE ESTATÍSTICAS — FABÚ TRADER WORLD CUP**\n"
-        f"```text\n{conteudo_tabela}\n```"
+    agora = datetime.datetime.now(TIMEZONE_CAMPEONATO)
+    embed = discord.Embed(
+        title="📊 PAINEL DE ESTATÍSTICAS — FABÚ TRADER WORLD CUP", 
+        color=discord.Color.gold(), 
+        timestamp=agora
     )
 
+    linhas = []
+    for posicao, (selecao, trader, sinais, tp, be, sl, pontos) in enumerate(dados, start=1):
+        emoji_bandeira = BANDEIRAS_SELECOES.get(selecao, "🏳️")
+        
+        # Monta a linha compacta: #. 🇧🇷 Trader | Sinais: X | 🎯 T: X | 🤝 B: X | ❌ S: X | Pts: X
+        linha = (
+            f"**{posicao}.** {emoji_bandeira} **{trader}**\n"
+            f"└ 📋 Sinais: `{sinais}` | 🎯 TP: `{tp}` | 🤝 BE: `{be}` | ❌ SL: `{sl}` | 🏆 Pts: **{pontos}**"
+        )
+        linhas.append(linha)
+
+    # Junta tudo na descrição do Embed, garantindo que quebre linha perfeitamente em qualquer ecrã
+    embed.description = "\n\n".join(linhas)
+    embed.set_footer(text="FABÚ Trader World Cup 2026")
+
+    await ctx.send(embed=embed)
 if __name__ == "__main__":
     inicializar_banco()
     if not TOKEN:
