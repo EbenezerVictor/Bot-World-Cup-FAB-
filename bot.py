@@ -281,7 +281,7 @@ def buscar_selecoes_cadastradas() -> set[str]:
 
 
 def extrair_nome_e_selecao(texto: str) -> tuple[str, str] | None:
-    texto = text.strip()
+    texto = texto.strip()  # CORRIGIDO (era text)
     for selecao in sorted(buscar_selecoes_cadastradas(), key=len, reverse=True):
         if texto.casefold().endswith(selecao.casefold()):
             nome = texto[: -len(selecao)].strip()
@@ -289,17 +289,16 @@ def extrair_nome_e_selecao(texto: str) -> tuple[str, str] | None:
                 return nome, selecao
     return None
 
-
 def extrair_linhas_registro(ctx: commands.Context) -> list[str]:
     linhas = ctx.message.content.split("\n")
-    primeira_linha = linhas[0]  # CORRIGIDO AQUI (era lines)
+    primeira_linha = linhas[0]  # CORRIGIDO (era lines)
     comando = ctx.invoked_with or "registrar"
     prefixo = str(ctx.prefix or "")
     chamada = f"{prefixo}{comando}"
     if primeira_linha.startswith(chamada):
         primeira_linha = primeira_linha[len(chamada) :].strip()
     linhas[0] = primeira_linha
-    return [linha.strip() for linha in linhas if linha.strip()]  # CORRIGIDO AQUI (era lines if)
+    return [linha.strip() for linha in linhas if linha.strip()]  # CORRIGIDO (era lines)
 
 def data_hoje_campeonato() -> str:
     return datetime.datetime.now(TIMEZONE_CAMPEONATO).date().isoformat()
