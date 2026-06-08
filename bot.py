@@ -281,7 +281,7 @@ def buscar_selecoes_cadastradas() -> set[str]:
 
 
 def extrair_nome_e_selecao(texto: str) -> tuple[str, str] | None:
-    texto = texto.strip()  # CORRIGIDO (era text)
+    texto = texto.strip()
     for selecao in sorted(buscar_selecoes_cadastradas(), key=len, reverse=True):
         if texto.casefold().endswith(selecao.casefold()):
             nome = texto[: -len(selecao)].strip()
@@ -289,46 +289,14 @@ def extrair_nome_e_selecao(texto: str) -> tuple[str, str] | None:
                 return nome, selecao
     return None
 
+
 def extrair_linhas_registro(ctx: commands.Context) -> list[str]:
-    # Pega todo o texto da mensagem, remove o "!registrar" e divide por linhas
     conteudo = ctx.message.content
     comando = f"{ctx.prefix}{ctx.invoked_with}"
     if conteudo.startswith(comando):
         conteudo = conteudo[len(comando):].strip()
-    
     return [linha.strip() for linha in conteudo.split("\n") if linha.strip()]
 
-@bot.command(name="registrar")
-@commands.has_permissions(administrator=True)
-async def registrar(ctx: commands.Context, *, dados: str = "") -> None:
-    del dados
-    linhas = extrair_linhas_registro(ctx)
-    registrados = []
-
-    for linha in linhas:
-        # Deteta a menção do Discord <@ID> em qualquer parte da linha
-        match_mention = re.search(r"<@!?(\d+)>", linha)
-        if not match_mention:
-            continue
-            
-        discord_id = match_mention.group(1)
-        
-        # Remove a menção do texto para sobrar apenas o Nome e a Seleção
-        dados_trader = re.sub(r"<@!?\d+>", "", linha).strip()
-        
-        trader = extrair_nome_e_selecao(dados_trader)
-        if trader is None:
-            continue
-            
-        nome, selecao = trader
-        cadastrar_trader(discord_id, nome, selecao)
-        registrados.append((discord_id, nome, selecao))
-
-    if registrados:
-        linhas_sucesso = [f"• <@{uid}> — **{n}** / **{s}**" for uid, n, s in registrados]
-        await ctx.send("✅ Traders vinculados com sucesso:\n" + "\n".join(linhas_sucesso))
-    else:
-        await ctx.send("❌ Não consegui processar nenhum trader. Garanta que usou o formato: `@Membro Seleção`")
 
 def data_hoje_campeonato() -> str:
     return datetime.datetime.now(TIMEZONE_CAMPEONATO).date().isoformat()
@@ -542,13 +510,20 @@ async def registrar(ctx: commands.Context, *, dados: str = "") -> None:
     registrados = []
 
     for linha in linhas:
-        match = re.match(r"^<@!?(\d+)>\s+(.+)$", linha)
-        if match is None:
+        # Encontra menções no formato <@123456> ou <@!123456>
+        match_mention = re.search(r"<@!?(\d+)>", linha)
+        if not match_mention:
             continue
-        discord_id, dados_trader = match.groups()
+            
+        discord_id = match_mention.group(1)
+        
+        # Isola o resto do texto tirando a menção do caminho
+        dados_trader = re.sub(r"<@!?\d+>", "", linha).strip()
+        
         trader = extrair_nome_e_selecao(dados_trader)
         if trader is None:
             continue
+            
         nome, selecao = trader
         cadastrar_trader(discord_id, nome, selecao)
         registrados.append((discord_id, nome, selecao))
@@ -556,6 +531,8 @@ async def registrar(ctx: commands.Context, *, dados: str = "") -> None:
     if registrados:
         linhas_sucesso = [f"• <@{uid}> — **{n}** / **{s}**" for uid, n, s in registrados]
         await ctx.send("✅ Traders vinculados com sucesso:\n" + "\n".join(linhas_sucesso))
+    else:
+        await ctx.send("❌ Não consegui processar nenhum trader. Garante que usaste o formato: `@Menção Nome Seleção` (A Seleção deve estar exatamente igual ao cartaz).")
 
 
 @bot.command(name="setup_campeonato")
@@ -629,6 +606,7 @@ async def on_message(message: discord.Message) -> None:
         return
     await bot.process_commands(message)
 
+
 @bot.command(name="desempenho")
 async def desempenho(ctx: commands.Context) -> None:
     """Exibe o painel de estatísticas detalhadas dividido para não estourar o limite do Discord."""
@@ -676,14 +654,12 @@ async def desempenho(ctx: commands.Context) -> None:
 
     agora = datetime.datetime.now(TIMEZONE_CAMPEONATO)
     
-    # Criamos listas para dividir os blocos de traders (10 no primeiro, o resto no segundo)
     linhas_bloco1 = []
     linhas_bloco2 = []
 
     for posicao, (selecao, trader, sinais, tp, be, sl, pontos) in enumerate(dados, start=1):
         emoji_bandeira = BANDEIRAS_SELECOES.get(selecao, "🏳️")
         
-        # Formato compacto ultra otimizado
         linha = (
             f"**{posicao}.** {emoji_bandeira} **{trader}**\n"
             f"└ 📋:`{sinais}` | 🎯:`{tp}` | 🤝:`{be}` | ❌:`{sl}` | 🏆:**{pontos}**"
@@ -694,7 +670,6 @@ async def desempenho(ctx: commands.Context) -> None:
         else:
             linhas_bloco2.append(linha)
 
-    # --- ENVIAR PARTE 1 (Traders 1 ao 10) ---
     embed1 = discord.Embed(
         title="📊 PAINEL DE ESTATÍSTICAS — PARTE 1/2", 
         color=discord.Color.gold(), 
@@ -703,7 +678,6 @@ async def desempenho(ctx: commands.Context) -> None:
     embed1.description = "\n\n".join(linhas_bloco1)
     await ctx.send(embed=embed1)
 
-    # --- ENVIAR PARTE 2 (Traders 11 ao 19) ---
     embed2 = discord.Embed(
         title="📊 PAINEL DE ESTATÍSTICAS — PARTE 2/2", 
         color=discord.Color.gold(), 
@@ -713,6 +687,7 @@ async def desempenho(ctx: commands.Context) -> None:
     embed2.set_footer(text="FABÚ Trader World Cup 2026")
     await ctx.send(embed=embed2)
     
+
 if __name__ == "__main__":
     inicializar_banco()
     if not TOKEN:
