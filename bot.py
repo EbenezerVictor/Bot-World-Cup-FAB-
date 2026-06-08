@@ -290,15 +290,45 @@ def extrair_nome_e_selecao(texto: str) -> tuple[str, str] | None:
     return None
 
 def extrair_linhas_registro(ctx: commands.Context) -> list[str]:
-    linhas = ctx.message.content.split("\n")
-    primeira_linha = linhas[0]  # CORRIGIDO (era lines)
-    comando = ctx.invoked_with or "registrar"
-    prefixo = str(ctx.prefix or "")
-    chamada = f"{prefixo}{comando}"
-    if primeira_linha.startswith(chamada):
-        primeira_linha = primeira_linha[len(chamada) :].strip()
-    linhas[0] = primeira_linha
-    return [linha.strip() for linha in linhas if linha.strip()]  # CORRIGIDO (era lines)
+    # Pega todo o texto da mensagem, remove o "!registrar" e divide por linhas
+    conteudo = ctx.message.content
+    comando = f"{ctx.prefix}{ctx.invoked_with}"
+    if conteudo.startswith(comando):
+        conteudo = conteudo[len(comando):].strip()
+    
+    return [linha.strip() for linha in conteudo.split("\n") if linha.strip()]
+
+@bot.command(name="registrar")
+@commands.has_permissions(administrator=True)
+async def registrar(ctx: commands.Context, *, dados: str = "") -> None:
+    del dados
+    linhas = extrair_linhas_registro(ctx)
+    registrados = []
+
+    for linha in linhas:
+        # Deteta a menção do Discord <@ID> em qualquer parte da linha
+        match_mention = re.search(r"<@!?(\d+)>", linha)
+        if not match_mention:
+            continue
+            
+        discord_id = match_mention.group(1)
+        
+        # Remove a menção do texto para sobrar apenas o Nome e a Seleção
+        dados_trader = re.sub(r"<@!?\d+>", "", linha).strip()
+        
+        trader = extrair_nome_e_selecao(dados_trader)
+        if trader is None:
+            continue
+            
+        nome, selecao = trader
+        cadastrar_trader(discord_id, nome, selecao)
+        registrados.append((discord_id, nome, selecao))
+
+    if registrados:
+        linhas_sucesso = [f"• <@{uid}> — **{n}** / **{s}**" for uid, n, s in registrados]
+        await ctx.send("✅ Traders vinculados com sucesso:\n" + "\n".join(linhas_sucesso))
+    else:
+        await ctx.send("❌ Não consegui processar nenhum trader. Garanta que usou o formato: `@Membro Seleção`")
 
 def data_hoje_campeonato() -> str:
     return datetime.datetime.now(TIMEZONE_CAMPEONATO).date().isoformat()
