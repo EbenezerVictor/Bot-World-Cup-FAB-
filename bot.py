@@ -65,32 +65,32 @@ PARTICIPANTES_OFICIAIS = [
 
 CALENDARIO_OFICIAL = {
     # --- SEMANA 1 ---
-    "2026-06-08": ["Portugal", "Brasil"],
-    "2026-06-09": ["Argentina", "França"],
-    "2026-06-10": ["Alemanha", "Espanha"],
-    "2026-06-11": ["Inglaterra", "Senegal"],
-    "2026-06-12": ["Holanda", "Bélgica"],
-    
-    # --- SEMANA 2 ---
-    "2026-06-15": ["Croácia", "Estados Unidos"],
-    "2026-06-16": ["Uruguai", "Marrocos"],
-    "2026-06-17": ["Japão", "México"],
-    "2026-06-18": ["Suíça", "Cabo Verde"],
-    "2026-06-19": ["Colômbia", "Portugal"],
-    
-    # --- SEMANA 3 ---
-    "2026-06-22": ["Brasil", "Argentina"],
-    "2026-06-23": ["França", "Alemanha"],
+    "2026-06-22": ["Portugal", "Brasil"],
+    "2026-06-23": ["Argentina", "França"],
     "2026-06-24": ["Espanha", "Inglaterra"],
     "2026-06-25": ["Senegal", "Holanda"],
-    "2026-06-26": ["Bélgica", "Croácia"],
+    "2026-06-26": ["Croácia", "Estados Unidos"],
+    
+    # --- SEMANA 2 ---
+    "2026-06-29": ["Uruguai", "Marrocos"],
+    "2026-06-30": ["Japão", "México"],
+    "2026-07-01": ["Suíça", "Cabo Verde"],
+    "2026-07-02": ["Colômbia", "Portugal"],
+    "2026-07-03": ["Brasil", "Argentina"],
+    
+    # --- SEMANA 3 ---
+    "2026-07-06": ["França", "Espanha"],
+    "2026-07-07": ["Inglaterra", "Senegal"],
+    "2026-07-08": ["Holanda", "Croácia"],
+    "2026-07-09": ["Estados Unidos", "Uruguai"],
+    "2026-07-10": ["Marrocos", "Japão"],
     
     # --- SEMANA 4 ---
-    "2026-06-29": ["Estados Unidos", "Uruguai"],
-    "2026-06-30": ["Marrocos", "Japão"],
-    "2026-07-01": ["México", "Suíça"],
-    "2026-07-02": ["Cabo Verde", "Colômbia"],
-    "2026-07-03": ["Portugal", "Brasil"],
+    "2026-07-13": ["México", "Suíça"],
+    "2026-07-14": ["Cabo Verde", "Colômbia"],
+    "2026-07-15": ["Portugal", "Brasil"],
+    "2026-07-16": ["Argentina", "França"],
+    "2026-07-17": ["Espanha", "Inglaterra"],
 }
 
 BASE_DIR = Path(__file__).resolve().parent
