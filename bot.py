@@ -227,8 +227,12 @@ def registrar_resultado(discord_id: str, selecao: str, tipo_hashtag: str) -> lis
 
     with conectar_banco() as conn:
         cursor = conn.cursor()
+        
+        # 1. Inserir primeiro para o histórico ficar perfeitamente atualizado
+        cursor.execute("INSERT INTO historico_sinais (discord_id, tipo_hashtag) VALUES (?, ?)", (discord_id, tipo_hashtag))
 
         if tipo_hashtag == "#TP":
+            # Hat-Trick (Agora validamos direto se o total já atingiu 3)
             cursor.execute(
                 """
                 SELECT COUNT(*) FROM historico_sinais
@@ -237,20 +241,21 @@ def registrar_resultado(discord_id: str, selecao: str, tipo_hashtag: str) -> lis
                 (discord_id,),
             )
             total_tp_hoje = cursor.fetchone()[0]
-            if total_tp_hoje + 1 == 3:
+            if total_tp_hoje == 3:
                 pontos += BONUS_HAT_TRICK
                 bonus_aplicados.append("hat_trick")
 
+            # Sequência Imparável (Pegamos os últimos 3 registos e vemos se TODOS são #TP)
             cursor.execute(
-                "SELECT tipo_hashtag FROM historico_sinais WHERE discord_id = ? ORDER BY timestamp DESC, id DESC LIMIT 2",
+                "SELECT tipo_hashtag FROM historico_sinais WHERE discord_id = ? ORDER BY timestamp DESC, id DESC LIMIT 3",
                 (discord_id,),
             )
             ultimos_registros = [row[0] for row in cursor.fetchall()]
-            if ultimos_registros == ["#TP", "#TP"]:
+            if len(ultimos_registros) == 3 and ultimos_registros == ["#TP", "#TP", "#TP"]:
                 pontos += BONUS_TP_SEGUNDOS
                 bonus_aplicados.append("tp_seguidos")
 
-        cursor.execute("INSERT INTO historico_sinais (discord_id, tipo_hashtag) VALUES (?, ?)", (discord_id, tipo_hashtag))
+        # 2. Atualizar o ranking com a pontuação final (ponto base + bónus se houver)
         cursor.execute("UPDATE ranking SET pontos = pontos + ? WHERE selecao = ?", (pontos, selecao))
         conn.commit()
 
