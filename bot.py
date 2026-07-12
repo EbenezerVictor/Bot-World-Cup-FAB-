@@ -692,6 +692,38 @@ async def desempenho(ctx: commands.Context) -> None:
     embed2.set_footer(text="FABÚ Trader World Cup 2026")
     await ctx.send(embed=embed2)
     
+@bot.command(name="restaurar_ranking")
+@commands.has_permissions(administrator=True)
+async def restaurar_ranking(ctx: commands.Context) -> None:
+    """Comando administrativo temporário para restaurar os pontos da tabela anterior."""
+    tabela_recuperacao = {
+        "Senegal": 31,
+        "México": 18,
+        "Croácia": 8,
+        "Marrocos": 7,  # Pontuação final do dia mencionada por você
+        "Cabo Verde": 6,
+        "Estados Unidos": 1,
+        "Portugal": 1,
+        "Suíça": 1,
+    }
+
+    with conectar_banco() as conn:
+        cursor = conn.cursor()
+        
+        # Primeiro, garantimos que todas as seleções oficiais existem no ranking com 0 pontos
+        selecoes_oficiais = {(selecao,) for _, _, selecao in PARTICIPANTES_OFICIAIS}
+        cursor.executemany("INSERT OR IGNORE INTO ranking (selecao, pontos) VALUES (?, 0)", selecoes_oficiais)
+        
+        # Depois, injetamos os pontos antigos por cima
+        for selecao, pontos in tabela_recuperacao.items():
+            cursor.execute(
+                "UPDATE ranking SET pontos = ? WHERE selecao = ?",
+                (pontos, selecao)
+            )
+        conn.commit()
+        
+    await ctx.send("✅ **Pontuações da FABÚ TRADER WORLD CUP restauradas com sucesso no Banco de Dados!**")
+    await ctx.send(embed=criar_embed_ranking())
 
 if __name__ == "__main__":
     inicializar_banco()
