@@ -697,8 +697,8 @@ async def desempenho(ctx: commands.Context) -> None:
 async def restaurar_ranking(ctx: commands.Context) -> None:
     """Comando administrativo temporário para restaurar os pontos da tabela anterior."""
     tabela_recuperacao = {
-        "Senegal": 31,
-        "México": 18,
+        "Senegal": 23,
+        "México": 14,
         "Croácia": 8,
         "Marrocos": 7,  # Pontuação final do dia mencionada por você
         "Cabo Verde": 6,
