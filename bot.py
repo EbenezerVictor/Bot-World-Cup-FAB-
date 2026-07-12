@@ -85,7 +85,7 @@ CALENDARIO_OFICIAL = {
     "2026-07-09": ["Estados Unidos", "Uruguai"],
     "2026-07-10": ["Marrocos", "Japão"],
     
-    # --- SEMANA 4 ---
+    # --- SEMANA  4 ---
     "2026-07-13": ["México", "Suíça"],
     "2026-07-14": ["Cabo Verde", "Colômbia"],
     "2026-07-15": ["Portugal", "Brasil"],
